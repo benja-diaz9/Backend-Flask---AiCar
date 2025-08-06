@@ -1,0 +1,223 @@
+import json
+import os
+import openai
+import requests
+import numpy as np
+import time
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+MONGO_URI = "mongodb://172.17.0.1:27019/"
+
+if not OPENAI_API_KEY:
+    raise ValueError("Debes configurar la variable de entorno OPENAI_API_KEY.")
+client = MongoClient(MONGO_URI)
+db = client['assistant_config']
+chatbots_collection = db['chatbots']
+
+# Verificar la conexión
+try:
+    client.admin.command('ping')
+    print("Conexión exitosa a MongoDB")
+except Exception as e:
+    print(f"Error al conectar: {e}")
+
+print(client.list_database_names())
+
+def get_modes():
+    """
+    Retorna (create_mode, use_mode, name_bot)
+    Si no encuentra el documento, retorna valores por defecto.
+    """
+    config_collection = db['config']
+    config_doc = config_collection.find_one({})
+    if not config_doc:
+        return False, False, "default", None  # Valores por defecto
+    create_mode = config_doc.get("create_mode", False)
+    use_mode = config_doc.get("use_mode", False)
+    name_bot = config_doc.get("name_bot", "default")
+    base_id = config_doc.get("base_id", None)
+    return create_mode, use_mode, name_bot, base_id
+def get_assistant_config(chatbots_collection, chatbot_name):
+    """
+    Recupera la configuración del asistente para un chatbot específico.
+    
+    Args:
+        chatbots_collection (Collection): La colección 'chatbots' de MongoDB.
+        chatbot_name (str): El nombre del chatbot cuyo config se desea recuperar.
+    
+    Returns:
+        dict: La configuración del asistente.
+    
+    Raises:
+        ValueError: Si no se encuentra el chatbot o el campo 'assistant_config' está ausente.
+    """
+    chatbot = chatbots_collection.find_one({"name": chatbot_name})
+    if not chatbot:
+        raise ValueError(f"No se encontró un chatbot con el nombre '{chatbot_name}'.")
+
+    return chatbot
+
+def create_assistant(client, chatbot_name):
+    """
+    Crea un nuevo asistente y vector store
+    Retorna el assistant_id.
+    """
+
+    try:
+        assistant_config = get_assistant_config(chatbots_collection, chatbot_name)
+        print(f"Configuración de asistente para '{chatbot_name}' recuperada exitosamente.")
+    except ValueError as ve:
+        print(f"Error: {ve}")
+        exit(1)
+    print(assistant_config)
+
+    # Verificar si el archivo assistant.json existe
+    if os.path.exists(assistant_file_path):
+        # Si el archivo existe, abrirlo en modo lectura
+        with open(assistant_file_path, 'r') as file:
+            # Cargar los datos JSON desde el archivo
+            assistant_data = json.load(file)
+            # Obtener el ID del asistente del archivo JSON
+            assistant_id = assistant_data['assistant_id']
+            # Imprimir un mensaje indicando que se cargó un ID de asistente existente
+            print("Loaded existing assistant ID.")
+    else:
+        
+        # Obtener el nombre de la carpeta desde 'file_name'
+        folder_name = assistant_config.get("file_name", "knowledge_files")
+        if not os.path.isdir(folder_name):
+            raise NotADirectoryError(f"La carpeta '{folder_name}' no existe en el directorio actual.")
+    
+        # Listar todos los archivos .txt en la carpeta
+        txt_files = [f for f in os.listdir(folder_name) if f.endswith('.txt')]
+        if not txt_files:
+            raise FileNotFoundError(f"No se encontraron archivos .txt en la carpeta '{folder_name}'.")
+    
+        # Crear el vector store utilizando la API de OpenAI
+        vector_store_id, uploaded_file_ids = create_vector_store(folder_name, txt_files)
+        assistant_config["tool_resources"]["file_search"]["vector_store_ids"].append(vector_store_id)
+        assistant_config["tool_resources"]["code_interpreter"]["file_ids"].extend(uploaded_file_ids)
+
+        # Crear el asistente utilizando la API de OpenAI
+        assistant = client.beta.assistants.create(
+            name=assistant_config.get("name", "Default Assistant"),
+            description=assistant_config.get("description", "Descripción por defecto."),
+            model=assistant_config.get("model", "gpt-4"),
+            instructions="\n".join(assistant_config.get("instructions", [])),
+            tools=assistant_config.get("tools", [
+                {"type": "file_search"},
+                {"type": "code_interpreter"}
+            ]),
+            tool_resources=assistant_config.get("tool_resources", {})
+        )
+        
+        assistant_id = assistant.id
+
+    chatbots_collection.update_one(
+        {"name": chatbot_name},
+        {
+            "$set": {
+                "last_chatbot_id": assistant_id,
+                "last_vector_store_id": vector_store_id  # Agregar el ID del vector store
+            }
+        }
+    )
+
+    # Retornar el ID del asistente
+    return assistant_id
+
+def create_vector_store(folder_path, txt_files):
+    """
+    Crea un vector store y asocia múltiples archivos .txt al mismo.
+
+    Args:
+        folder_path (str): Ruta de la carpeta que contiene los archivos .txt.
+        txt_files (list): Lista de nombres de archivos .txt.
+
+    Returns:
+        tuple: (vector_store_id, list_of_uploaded_file_ids)
+    """
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+        "OpenAI-Beta": "assistants=v2"
+    }
+
+    # Paso 1: Crear el vector store
+    create_vs_url = "https://api.openai.com/v1/vector_stores"
+    vs_payload = {
+        "name": "Tramites"
+    }
+    response = requests.post(create_vs_url, headers=headers, json=vs_payload)
+    if response.status_code != 200:
+        raise Exception(f"Error al crear el vector store: {response.text}")
+    vs_data = response.json()
+    vector_store_id = vs_data['id']
+    print(f"Vector store creado con ID: {vector_store_id}")
+    uploaded_file_ids = []
+
+    # Paso 2 y 3: Subir cada archivo .txt y asociarlo al vector store
+    for txt_file in txt_files:
+        file_path = os.path.join(folder_path, txt_file)
+        
+        # Subir el archivo a OpenAI
+        with open(file_path, 'rb') as f:
+            upload_response = openai.files.create(
+                file=f,
+                purpose='assistants'
+            )
+        if not upload_response.id:
+            raise ValueError(f"Error al subir el archivo '{txt_file}'.")
+        uploaded_file_id = upload_response.id
+        uploaded_file_ids.append(uploaded_file_id)
+        print(f"Archivo '{txt_file}' subido con éxito. ID: {uploaded_file_id}")
+
+        # Asociar el archivo al vector store
+        add_file_url = f"https://api.openai.com/v1/vector_stores/{vector_store_id}/files"
+        add_file_payload = {
+            "file_id": uploaded_file_id
+        }
+        add_file_response = requests.post(add_file_url, headers=headers, json=add_file_payload)
+        if add_file_response.status_code != 200:
+            raise Exception(f"Error al asociar el archivo '{txt_file}' al vector store: {add_file_response.text}")
+        add_file_data = add_file_response.json()
+        print(f"Respuesta completa al asociar el archivo '{txt_file}': {json.dumps(add_file_data, indent=2)}")
+        
+        # Implementar el mecanismo de polling para cada archivo
+        max_retries = 5          # Número máximo de intentos
+        retry_count = 0           # Contador de intentos
+        wait_time = 5            # Tiempo de espera entre intentos (en segundos)
+
+        while True:
+            # Realizar una solicitud GET para obtener el estado actualizado
+            status_response = requests.get(add_file_url, headers=headers)
+            if status_response.status_code != 200:
+                raise Exception(f"Error al verificar el estado del archivo '{txt_file}': {status_response.text}")
+            status_data = status_response.json()
+
+            # Verificar si 'data' contiene al menos un archivo
+            if not status_data.get("data"):
+                raise Exception(f"No se encontraron archivos en la respuesta de la API para '{txt_file}'.")
+
+            # Asumir que estamos interesados en el primer archivo de la lista
+            file_info = status_data["data"][0]
+            current_status = file_info.get("status")
+            usage_bytes = file_info.get("usage_bytes")
+
+            print(f"Estado actual para '{txt_file}': {current_status}. Uso de bytes: {usage_bytes}. Esperando {wait_time} segundos antes de reintentar...")
+
+            if current_status == "completed":
+                print(f"Archivo '{txt_file}' asociado al vector store exitosamente.")
+                break
+            elif current_status == "failed":
+                raise Exception(f"Error en el procesamiento del archivo '{txt_file}': {file_info.get('last_error')}")
+            else:
+                retry_count += 1
+                if retry_count >= max_retries:
+                    raise Exception(f"Tiempo de espera agotado mientras se procesaba el archivo '{txt_file}'.")
+                time.sleep(wait_time)
+
+    return vector_store_id, [uploaded_file_id]
+

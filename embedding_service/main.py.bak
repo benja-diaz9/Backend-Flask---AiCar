@@ -1,0 +1,172 @@
+import os
+from time import sleep
+import openai
+from packaging import version
+from flask import Flask, request, jsonify
+import functions
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+from flask_cors import CORS  # Importar CORS
+from bson import ObjectId
+import time
+
+required_version = version.parse("1.1.1")
+current_version = version.parse(openai.__version__)
+
+OPENAI_API_KEY = os.environ['OPENAI_API_KEY']
+MONGO_URI = "mongodb://172.17.0.1:27019/"
+
+if current_version < required_version:
+    raise ValueError(f"La versión de OpenAI {openai.__version__} es menor que 1.1.1")
+else:
+    print("La versión de OpenAI es compatible.")
+
+# 1) Asigna tu clave globalmente
+openai.api_key = OPENAI_API_KEY
+openai.request_headers = {
+    "OpenAI-Beta": "assistants=v2"
+}
+
+
+
+# Iniciar la aplicación Flask
+app = Flask(__name__)
+CORS(app)  # Esto habilita CORS en todas las rutas
+client = MongoClient(MONGO_URI)
+
+
+# Verificar la conexión
+try:
+    client.admin.command('ping')
+    print("Conexión exitosa a MongoDB")
+except Exception as e:
+    print(f"Error al conectar: {e}")
+
+# 1) Leemos create_mode y use_mode desde la DB
+create_mode, use_mode, name_bot, base_id = functions.get_modes()
+print(f"create_mode: {create_mode}, use_mode: {use_mode}")
+
+# 2) Lógica para create_mode (sin guardar assistant_id en DB)
+if create_mode:
+    assistant_id_created = functions.create_assistant(openai, name_bot)
+    print(f"Se creó un nuevo assistant con ID: {assistant_id_created}")
+else:
+    assistant_id_created = None
+if not use_mode:
+    print("use_mode es False => No se levantarán las rutas /start y /chat.")
+    # Una forma sencilla de "deshabilitar" rutas es no definirlas, o devolver error:
+    # Opción A: No definimos /start ni /chat
+    # Opción B: Definirlos pero que devuelvan un error 403:
+
+    @app.route('/start/<assistant_id>', methods=['GET'])
+    def start_conversation_disabled(assistant_id):
+        return jsonify({"error": "use_mode es False, no está permitido iniciar conversación."}), 403
+
+    @app.route('/chat/<assistant_id>', methods=['POST'])
+    def chat_disabled(assistant_id):
+        return jsonify({"error": "use_mode es False, no está permitido chatear."}), 403
+
+else:
+    # Ruta para iniciar una nueva conversación
+    @app.route('/start', defaults={'assistant_id': None}, methods=['GET'])
+    @app.route('/start/<assistant_id>', methods=['GET'])
+    def start_conversation(assistant_id):
+       if assistant_id is None:
+           if not base_id:
+               return jsonify({"error": "No se proporcionó un assistant_id y no existe base_id en la DB."}), 400
+           assistant_id = base_id
+       print("Iniciando una nueva conversación...")  # Línea de depuración
+       thread = openai.beta.threads.create()
+       print(f"Nueva conversación creada con ID: {thread.id}"
+             )  # Línea de depuración
+       return jsonify({"thread_id": thread.id})
+
+
+    # Ruta para generar una respuesta
+    @app.route('/chat', defaults={'assistant_id': None}, methods=['POST'])
+    @app.route('/chat/<assistant_id>', methods=['POST'])
+    def chat(assistant_id):
+       if assistant_id is None:
+           if not base_id:
+               return jsonify({"error": "No se proporcionó un assistant_id y no existe base_id en la DB."}), 400
+           assistant_id = base_id
+       data = request.json  # Obtener datos JSON de la solicitud
+       thread_id = data.get('thread_id')  # Obtener el ID de la conversación
+       user_input = data.get('message', '')  # Obtener el mensaje del usuario
+
+       if not thread_id:
+           print("Error: Falta el thread_id")  # Línea de depuración
+           return jsonify({"error": "Falta el thread_id"}), 400
+
+       print(
+           f"Mensaje recibido: {user_input} para la conversación ID: {thread_id}"
+       )  # Línea de depuración
+
+       # Añadir el mensaje del usuario a la conversación
+       openai.beta.threads.messages.create(thread_id=thread_id,
+                                        role="user",
+                                        content=user_input)
+
+       # Ejecutar el asistente
+       run = openai.beta.threads.runs.create(thread_id=thread_id,
+                                             assistant_id=assistant_id)
+
+       # Verificar si la ejecución requiere acción (llamada a función)
+       while True:
+           run_status = openai.beta.threads.runs.retrieve(thread_id=thread_id,
+                                                       run_id=run.id)
+           print(f"Estado de la ejecución: {run_status.status}")
+           if run_status.status == 'completed':
+               break
+           sleep(1)  # Esperar un segundo antes de verificar nuevamente
+
+       # Recuperar y devolver el último mensaje del asistente
+       messages = openai.beta.threads.messages.list(thread_id=thread_id)
+       response = messages.data[0].content[0].text.value
+
+       print(f"Respuesta del asistente: {response}")  # Línea de depuración
+       return jsonify({"response": response})
+
+    # Ruta para guardar información de conversación (sin assistant_id)
+    @app.route('/save', defaults={'assistant_id': None}, methods=['POST'])
+    @app.route('/save/<assistant_id>', methods=['POST'])
+    def save_conversation(assistant_id):
+       """
+       Guarda los datos de la conversación en la base de datos 'responses', colección 'responses_TCO'.
+       Si assistant_id no fue provisto en la URL, por defecto es None.
+       """
+       db_responses = client['responses']
+       collection = db_responses['responses_TCO']
+       try:
+           data = request.json  # Datos enviados en formato JSON
+
+           # Se prepara el documento a insertar.
+           # Ajusta los campos según tu conveniencia: conversation_id, time_spent, experience, conversation, etc.
+           doc_to_insert = {
+               "assistant_id": assistant_id,  # Guardamos el ID que venga en la URL (o None si no viene)
+               "conversation_id": data.get("conversation_id"),
+               "time_spent": data.get("time_spent"),
+               "experience": data.get("experience"),
+               "conversation": data.get("conversation"),
+               "timestamp": data.get("timestamp"),  
+               "saved_at": time.time()  # Ejemplo: fecha/hora de guardado en UNIX timestamp
+           }
+
+           # Insertar en la colección y obtener el ID generado
+           result = collection.insert_one(doc_to_insert)
+
+           return jsonify({
+               "message": "Datos guardados correctamente",
+               "inserted_id": str(result.inserted_id)  # Convertir ObjectId a string para JSON
+           }), 200
+
+       except Exception as e:
+           # Manejo de errores genérico
+           return jsonify({
+               "error": str(e)
+           }), 500
+
+# Ejecutar el servidor
+if __name__ == '__main__':
+    app.run(host='0.0.0.0',
+            port=8080)  # Ejecutar la aplicación Flask en el puerto 8080
