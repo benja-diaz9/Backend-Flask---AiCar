@@ -32,16 +32,13 @@ def get_assistant_id(prompt):
             print("El assistant_id no puede estar vacío. Por favor, ingresa un ID válido.")
 
 def main():
-    # ID del documento a actualizar
-    DOCUMENT_ID = "677fdbac6b2e14e787567a2b"
-
     print("=== Actualización de Configuración de Asistente GPT ===\n")
 
     # Solicitar y validar entradas del usuario
     create_mode = get_boolean_input("Ingresa el valor para 'create_mode' (true/false): ")
     use_mode = get_boolean_input("Ingresa el valor para 'use_mode' (true/false): ")
-    base_id = input("Ingresa el valor para 'base_id': ")
-    
+    base_id = get_assistant_id("Ingresa el valor para 'base_id' (formato asst_...): ")
+
     # Configuración de conexión a MongoDB
     MONGO_URI = "mongodb://localhost:27019/"  # Asegúrate de que este URI es correcto
     DATABASE_NAME = "assistant_config"
@@ -63,19 +60,14 @@ def main():
     db = client[DATABASE_NAME]
     collection = db[COLLECTION_NAME]
 
-    try:
-        # Convertir el DOCUMENT_ID a ObjectId
-        object_id = ObjectId(DOCUMENT_ID)
-    except Exception as e:
-        print(f"\nError: El DOCUMENT_ID proporcionado no es válido: {e}")
-        sys.exit(1)
-
-    # Preparar las operaciones de actualización
+    # Preparar las operaciones de actualización (upsert sobre el primer documento)
     update_operations = {
         "$set": {
             "create_mode": create_mode,
             "use_mode": use_mode,
-            "base_id": base_id
+            "base_id": base_id,
+            # opcional: asegura un nombre por defecto
+            "name_bot": "default"
         },
         "$unset": {
             "crerate_mode": "",  # Eliminar el campo mal escrito
@@ -84,17 +76,15 @@ def main():
     }
 
     try:
-        # Realizar la actualización
-        result = collection.update_one(
-            {"_id": object_id},
-            update_operations
-        )
+        # Realizar la actualización con upsert (crea el doc si no existe)
+        result = collection.update_one({}, update_operations, upsert=True)
 
-        if result.matched_count == 0:
-            print(f"\nNo se encontró ningún documento con _id: {DOCUMENT_ID}")
+        if result.matched_count == 0 and not result.upserted_id:
+            print("\nNo se pudo actualizar ni insertar el documento de configuración.")
         else:
-            print(f"\nDocumento con _id: {DOCUMENT_ID} actualizado exitosamente.")
-            print(f"Campos actualizados: create_mode={create_mode}, use_mode={use_mode}")
+            op = "insertado" if result.upserted_id else "actualizado"
+            print(f"\nDocumento de configuración {op} exitosamente.")
+            print(f"Campos: create_mode={create_mode}, use_mode={use_mode}, base_id={base_id}")
     
     except Exception as e:
         print(f"\nError al actualizar el documento: {e}")

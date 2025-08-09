@@ -5,7 +5,7 @@ from pymongo import MongoClient
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("Debes configurar OPENAI_API_KEY.")
-client = MongoClient("mongodb://localhost:27019/")
+client = MongoClient("mongodb://172.17.0.1:27019/")
 db = client['assistant_config']
 chatbots_collection = db['chatbots']
 
@@ -25,16 +25,8 @@ def get_assistant_config(collection, name):
     return bot
 
 def load_initial_context(chatbot_name):
-    try:
-        cfg = get_assistant_config(chatbots_collection, chatbot_name)
-    except Exception:
-        return ""
-    instructions = cfg.get("instructions", [])
-    if isinstance(instructions, list):
-        return "\n".join(instructions)
-    if isinstance(instructions, str):
-        return instructions
-    return ""
+    cfg = get_assistant_config(chatbots_collection, chatbot_name)
+    return "\n".join(cfg.get("instructions", []))
 
 def create_assistant(client, chatbot_name):
     cfg = get_assistant_config(chatbots_collection, chatbot_name)
