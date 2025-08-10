@@ -17,3 +17,4 @@ COPY package.json ./package.json
 RUN npm i --no-audit --no-fund --omit=dev && npm i vite@5 -D --no-audit --no-fund
 EXPOSE 5173
 CMD ["npm","run","preview","--","--host","0.0.0.0"]
+

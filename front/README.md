@@ -32,3 +32,4 @@ npm run preview
 ```
 
 La landing incluye un buzón para escribir el primer mensaje; al enviar, llama a `/start` y luego a `/chat` del backend.
+

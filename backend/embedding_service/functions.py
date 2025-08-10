@@ -1,6 +1,9 @@
 # functions.py
 import json, os, openai, requests, time
 from pymongo import MongoClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:

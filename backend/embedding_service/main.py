@@ -8,6 +8,10 @@ import functions
 from pymongo import MongoClient
 from flask_cors import CORS
 import time
+from dotenv import load_dotenv
+
+# Cargar .env local si existe
+load_dotenv()
 
 # 1) Versión mínima de la librería OpenAI
 required_version = version.parse("1.1.1")
