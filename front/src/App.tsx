@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 function getBackendUrl(): string {
   const envUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
@@ -46,6 +46,17 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [response, setResponse] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const [placeholderIdx, setPlaceholderIdx] = useState(0)
+  const rotatingPlaceholder = `Ejemplo: ${PROMPT_SUGGESTIONS[placeholderIdx]}`
+
+  useEffect(() => {
+    if (message.trim().length > 0) return
+    const id = setInterval(() => {
+      setPlaceholderIdx((i) => (i + 1) % PROMPT_SUGGESTIONS.length)
+    }, 4000)
+    return () => clearInterval(id)
+  }, [message])
 
   function useSuggestion(text: string) {
     setMessage(text)
@@ -100,25 +111,11 @@ export default function App() {
         <form className="card" onSubmit={handleSend}>
           <label htmlFor="message" className="label">Tu primer mensaje</label>
 
-          <div className="suggestions" aria-label="Sugerencias de prompts">
-            {PROMPT_SUGGESTIONS.map((s, i) => (
-              <button
-                type="button"
-                className="chip"
-                key={i}
-                onClick={() => useSuggestion(s)}
-                title={s}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
           <textarea
             id="message"
             ref={textareaRef}
             className="input"
-            placeholder="Selecciona una sugerencia o escribe tu mensaje..."
+            placeholder={rotatingPlaceholder}
             rows={10}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
