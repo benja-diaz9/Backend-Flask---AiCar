@@ -6,18 +6,10 @@ function getBackendUrl(): string {
 }
 
 const PROMPT_SUGGESTIONS: string[] = [
-  'Quiero un auto para irme a la playa, cómodo y con buen espacio para equipaje.',
-  'Me gustaría un auto económico, fácil de manejar y seguro para ciudad.',
-  'Busco un hatchback compacto con bajo consumo para trayectos urbanos.',
-  'Necesito un sedán cómodo para familia de 5, con buen baúl y bajo mantenimiento.',
-  'Recomiéndame un SUV para viajes largos con buena estabilidad y seguridad.',
-  'Quiero un auto automático, económico y confiable con presupuesto medio.',
-  'Busco un auto híbrido para uso diario, autonomía y costo de mantenimiento razonable.',
-  'Necesito un auto para caminos de tierra ocasionales, suspensión confortable.',
-  'Quiero un auto eléctrico para 60 km diarios, buen servicio postventa.',
-  'Me interesa un auto pequeño para estacionar fácil, bajo seguro y repuestos accesibles.',
-  'Recomendá un auto para uso en ruta, silencioso y con asistencias ADAS.',
-  'Quiero un auto con buena distancia al suelo y consumo moderado para ciudad y ruta.'
+  'I need a reliable and fuel-efficient SUV under $30,000.',
+  'Looking for a compact city hatchback with low maintenance.',
+  'Family sedan for 5 with large trunk and safety features.',
+  'An electric car for 60 km daily commute with good support.'
 ]
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
@@ -66,28 +58,8 @@ function computeRecommendations(query: string, limit = 6): CarItem[] {
   return (ranked[0] && (ranked[0].tags.length>0)) ? ranked.slice(0, limit) : CATALOG.slice(0, limit)
 }
 
-type Featured = { title: string; subtitle: string; details: string }
-const FEATURED_CARS: Featured[] = [
-  {
-    title: 'City Compacto Eco',
-    subtitle: 'Económico, fácil de manejar',
-    details: 'Hatchback urbano con bajo consumo, ideal para trayectos diarios y estacionamiento sencillo.'
-  },
-  {
-    title: 'SUV Familiar Ruta+ ',
-    subtitle: 'Espacio y seguridad',
-    details: 'SUV confortable para viajes largos, buen baúl y asistencias de conducción para mayor seguridad.'
-  },
-  {
-    title: 'Sedán Confort Plus',
-    subtitle: 'Equilibrio y mantenimiento bajo',
-    details: 'Sedán amplio para 5 pasajeros, silencioso en ruta y costos de mantenimiento contenidos.'
-  }
-]
-
 export default function App() {
   const backendUrl = useMemo(() => getBackendUrl(), [])
-  // Add logo2.png with fallback to logo.png
   const [logoSrc, setLogoSrc] = useState<string>('/logo2.png')
 
   const [message, setMessage] = useState('')
@@ -103,39 +75,12 @@ export default function App() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const chatRef = useRef<HTMLDivElement | null>(null)
 
-  const [placeholderIdx, setPlaceholderIdx] = useState(0)
-  const [phStage, setPhStage] = useState<'none'|'out'|'in'>('none')
-  const phIntervalRef = useRef<number | null>(null)
-  const phTimeoutRef = useRef<number | null>(null)
-  const placeholder = hasStarted ? 'Escribe tu mensaje...' : `Ejemplo: ${PROMPT_SUGGESTIONS[placeholderIdx]}`
-
-  // rotate examples only before chat starts and while input is empty, with fade-out then fade-in
-  useEffect(() => {
-    if (hasStarted || message.trim().length > 0) return
-    const tick = () => {
-      setPhStage('out')
-      if (phTimeoutRef.current) window.clearTimeout(phTimeoutRef.current)
-      phTimeoutRef.current = window.setTimeout(() => {
-        setPlaceholderIdx(i => (i + 1) % PROMPT_SUGGESTIONS.length)
-        setPhStage('in')
-        phTimeoutRef.current = window.setTimeout(() => setPhStage('none'), 250)
-      }, 200)
-    }
-    tick() // start immediately
-    phIntervalRef.current = window.setInterval(tick, 4000)
-    return () => {
-      if (phIntervalRef.current) window.clearInterval(phIntervalRef.current)
-      if (phTimeoutRef.current) window.clearTimeout(phTimeoutRef.current)
-    }
-  }, [hasStarted, message])
-
   // autoscroll chat to bottom on new messages
   useEffect(() => {
     if (!chatRef.current) return
     chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, loading])
 
-  // Auto-resize helper for the bottom composer
   function autoResize(el: HTMLTextAreaElement) {
     const min = 40
     const max = 220
@@ -148,14 +93,6 @@ export default function App() {
     if (resultsTimerRef.current) window.clearTimeout(resultsTimerRef.current)
     setAnimatingResults(true)
     resultsTimerRef.current = window.setTimeout(() => setAnimatingResults(false), 350)
-  }
-
-  function useSuggestion(text: string) {
-    setMessage(text)
-    requestAnimationFrame(() => {
-      if (textareaRef.current) autoResize(textareaRef.current)
-      textareaRef.current?.focus()
-    })
   }
 
   async function ensureThread(): Promise<string> {
@@ -182,7 +119,6 @@ export default function App() {
     try {
       const id = await ensureThread()
 
-      // First-time transition and compute recommendations
       if (!hasStarted) {
         setHasStarted(true)
         setAnimatingStart(true)
@@ -191,13 +127,11 @@ export default function App() {
         triggerResultsAnimation()
         window.setTimeout(() => setAnimatingStart(false), 450)
       } else {
-        // Update results heuristically on each new user message
         const recs = computeRecommendations(text)
         setResults(recs)
         triggerResultsAnimation()
       }
 
-      // Optimistically append user message
       setMessages((prev) => [...prev, { role: 'user', content: text }])
       setMessage('')
       requestAnimationFrame(() => {
@@ -224,52 +158,45 @@ export default function App() {
     }
   }
 
-  const showGhost = !hasStarted && message.trim().length === 0
-
   return (
     <div className="page">
-      {/* Top banner */}
-      <div className="topbar">
+      {/* Top bar with nav and sign-in */}
+      <div className="topbar topbar-split">
         <div className="brand-wrap">
-          <img
-            src={logoSrc}
-            onError={() => setLogoSrc('/logo.png')}
-            alt="AiCar logo"
-            className="brand-logo"
-          />
+          <img src={logoSrc} onError={() => setLogoSrc('/logo.png')} alt="AiCar logo" className="brand-logo" />
           <div className="brand">AiCar</div>
         </div>
+        <nav className="nav">
+          <a>Buy</a>
+          <a>Sell</a>
+          <a>Value</a>
+          <a>Research</a>
+        </nav>
+        <button className="signin">Sign in</button>
       </div>
 
-      <main className="container">
-        {/* Landing hero + composer */}
-        {!hasStarted ? (
-          <section className="card" aria-label="Primer mensaje">
-            <h1 className="hero-title">Encuentra tu próximo auto</h1>
-            <form onSubmit={handleSend} className={`composer-top`}>
-              <div className="field">
-                {showGhost && (
-                  <span className={`ghost ${phStage==='out' ? 'out' : phStage==='in' ? 'in' : ''}`}>{placeholder}</span>
-                )}
-                <textarea
-                  id="message"
-                  ref={textareaRef}
-                  className={`input`}
-                  placeholder={showGhost ? '' : placeholder}
-                  rows={10}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                />
-              </div>
-              <button className="button" type="submit" disabled={loading}>
-                {loading ? 'Enviando…' : 'Empezar y enviar'}
-              </button>
-              {error && <div className="alert error" role="alert">{error}</div>}
+      {!hasStarted ? (
+        <section className="hero" aria-label="Landing">
+          <div className="hero-overlay" />
+          <div className="hero-content">
+            <h1 className="hero-title-xxl">Find your perfect car</h1>
+            <p className="hero-sub">Search smarter with AI. Get personalized recommendations and insights to help you find the best car for your needs.</p>
+            <form className="searchbar" onSubmit={handleSend}>
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Search by make, model, or keyword"
+                value={message}
+                onChange={(e)=>setMessage(e.target.value)}
+              />
+              <button className="search-button" type="submit">Search</button>
             </form>
-          </section>
-        ) : (
+          </div>
+        </section>
+      ) : (
+        <main className="container">
           <div className={`layout fade-in`}>
-            <section className={`pane card left-pane ${animatingStart ? 'from-center' : ''}`} aria-label="Conversación" ref={chatRef}>
+            <section className={`pane card left-pane ${animatingStart ? 'from-center' : ''}`} aria-label="Conversation" ref={chatRef}>
               <div className="chat">
                 {messages.map((m, idx) => (
                   <div key={idx} className={`bubble ${m.role === 'user' ? 'user' : 'assistant'}`}>
@@ -277,31 +204,37 @@ export default function App() {
                   </div>
                 ))}
                 {loading && (
-                  <div className="bubble assistant"><div className="bubble-inner">Escribiendo…</div></div>
+                  <div className="bubble assistant">
+                    <div className="bubble-inner">
+                      <div className="dots" aria-label="Typing">
+                        <span></span><span></span><span></span>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
               <form className="composer-bottom" onSubmit={handleSend}>
-                <label htmlFor="message" className="label">Tu mensaje</label>
+                <label htmlFor="message" className="label">Your message</label>
                 <textarea
                   id="message"
                   ref={textareaRef}
                   className={`input one-line`}
-                  placeholder={placeholder}
+                  placeholder={'Type your message...'}
                   rows={1}
                   onInput={(e) => autoResize(e.currentTarget)}
                   value={message}
                   onChange={(e) => { setMessage(e.target.value); autoResize(e.target as HTMLTextAreaElement) }}
                 />
                 <button className="button" type="submit" disabled={loading}>
-                  {loading ? 'Enviando…' : 'Enviar'}
+                  {loading ? 'Sending…' : 'Send'}
                 </button>
                 {error && <div className="alert error" role="alert">{error}</div>}
               </form>
             </section>
 
-            <aside className={`pane card right-pane ${animatingStart ? 'from-right' : ''}`} aria-label="Publicaciones recomendadas">
-              <h2 className="label">Publicaciones que encajan</h2>
+            <aside className={`pane card right-pane ${animatingStart ? 'from-right' : ''}`} aria-label="Personalized results">
+              <h2 className="panel-title">Your personalized results</h2>
               <div className={`results-grid ${animatingResults ? 'crossfade' : ''}`}>
                 {results.map(item => (
                   <article key={item.id} className="result-card">
@@ -320,41 +253,18 @@ export default function App() {
                       className="chip"
                       onClick={() => setMessage(`Estoy considerando ${item.name}. ¿Qué opinas para mi caso?`)}
                     >
-                      Usar como punto de partida
+                      Use as a starting point
                     </button>
                   </article>
                 ))}
                 {results.length === 0 && (
-                  <p className="result-empty">No hay coincidencias exactas. Ajusta tu búsqueda.</p>
+                  <p className="result-empty">No exact matches. Try refining your search.</p>
                 )}
               </div>
             </aside>
           </div>
-        )}
-
-        {/* Featured posts (solo en landing) */}
-        {!hasStarted && (
-          <section className="featured card" aria-label="Publicaciones destacadas">
-            <h2 className="label">Publicaciones destacadas</h2>
-            <div className="featured-grid">
-              {FEATURED_CARS.map((item, idx) => (
-                <article key={idx} className="featured-card">
-                  <h3 className="featured-title">{item.title}</h3>
-                  <p className="featured-subtitle">{item.subtitle}</p>
-                  <p className="featured-desc">{item.details}</p>
-                  <button
-                    type="button"
-                    className="chip"
-                    onClick={() => setMessage(`Estoy buscando algo como: ${item.title}. ${item.details}`)}
-                  >
-                    Usar como punto de partida
-                  </button>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-      </main>
+        </main>
+      )}
 
       <footer className="footer">
         <span>Backend: {backendUrl}</span>
