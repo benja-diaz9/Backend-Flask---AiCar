@@ -9,3 +9,6 @@ build
 dist
 .env
 
+**/.env
+**/.env.*
+git push*/.env.example
