@@ -1,14 +1,25 @@
-node_modules
-.DS_Store
-vite.svg
-.idea
-.vscode
-.dist
-coverage
-build
-dist
-.env
+# Virtualenvs en cualquier carpeta
+**/.venv/
+**/venv/
+**/env/
 
+# Python caches
+**/__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Node/Vite
+front/node_modules/
+front/dist/
+
+# SO/editores
+.DS_Store
+.vscode/
+.idea/
+
+# Entornos
+.env
 **/.env
-**/.env.*
-git push*/.env.example
+!.env.example
+!**/.env.example

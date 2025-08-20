@@ -40,7 +40,7 @@ def main():
     base_id = get_assistant_id("Ingresa el valor para 'base_id' (formato asst_...): ")
 
     # Configuración de conexión a MongoDB
-    MONGO_URI = "mongodb://localhost:27019/"  # Asegúrate de que este URI es correcto
+    MONGO_URI = "mongodb://localhost:27017/"  
     DATABASE_NAME = "assistant_config"
     COLLECTION_NAME = "config"
 

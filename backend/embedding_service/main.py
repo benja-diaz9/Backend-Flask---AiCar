@@ -4,7 +4,8 @@ from time import sleep
 import openai
 from packaging import version
 from flask import Flask, request, jsonify
-import functions
+from . import functions
+from .mysql_search_sql import bp as mysql_sql_bp
 from pymongo import MongoClient
 from flask_cors import CORS
 import time
@@ -28,8 +29,15 @@ openai.request_headers = {"OpenAI-Beta": "assistants=v2"}
 
 # 3) Flask + MongoDB
 app = Flask(__name__)
-CORS(app)
-client = MongoClient("mongodb://localhost:27019/")
+CORS(app, origins=[
+    "http://localhost:3000", "http://127.0.0.1:3000",
+    "http://localhost:5173", "http://127.0.0.1:5173"
+])
+
+# 🔴 REGISTRA EL BLUEPRINT AQUÍ, NO EN __main__
+app.register_blueprint(mysql_sql_bp)
+
+client = MongoClient("mongodb://localhost:27017/")
 try:
     client.admin.command('ping')
     print("Conexión exitosa a MongoDB")
@@ -90,27 +98,23 @@ else:
         if not thread_id:
             return jsonify({"error": "Falta el thread_id"}), 400
 
-        # Solo adjuntar el nuevo mensaje
         openai.beta.threads.messages.create(
             thread_id=thread_id,
             role="user",
             content=user_input
         )
 
-        # Ejecutar el asistente SIN params (no soportado en esta versión)
         run = openai.beta.threads.runs.create(
             thread_id=thread_id,
             assistant_id=assistant_id
         )
 
-        # Polling hasta completion
         while True:
             status = openai.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id).status
             if status == 'completed':
                 break
             sleep(1)
 
-        # Devolver respuesta
         msg = openai.beta.threads.messages.list(thread_id=thread_id).data[0].content[0].text.value
         return jsonify({"response": msg})
 
@@ -131,5 +135,8 @@ else:
         result = collection.insert_one(doc)
         return jsonify({"inserted_id": str(result.inserted_id)}), 200
 
+
+# Deja este bloque solo si quieres poder correr: python backend/embedding_service/main.py
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    print("URL Map antes de run:", app.url_map)
+    app.run(host='127.0.0.1', port=5000, debug=False)

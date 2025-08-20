@@ -8,7 +8,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("Debes configurar OPENAI_API_KEY.")
-client = MongoClient("mongodb://localhost:27019/")
+client = MongoClient("mongodb://localhost:27017/")
 db = client['assistant_config']
 chatbots_collection = db['chatbots']
 

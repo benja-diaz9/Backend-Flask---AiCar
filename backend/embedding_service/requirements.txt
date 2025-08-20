@@ -8,3 +8,5 @@ requests==2.32.3
 pymongo==4.3.3
 flask_cors==3.0.10
 python-dotenv==1.0.1
+PyMySQL==1.1.0
+cryptography>=42,<43
