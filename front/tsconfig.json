@@ -13,6 +13,6 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "vite-env.d.ts"]
 }
 

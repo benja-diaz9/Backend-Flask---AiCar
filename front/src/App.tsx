@@ -12,20 +12,229 @@ const PROMPT_SUGGESTIONS: string[] = [
   'An electric car for 60 km daily commute with good support.'
 ]
 
+// Sell form modal for owners/dealers
+type SellFormData = {
+  ownerName: string
+  email: string
+  role: 'owner' | 'dealer'
+  make: string
+  model: string
+  year: string
+  mileage: string
+  price: string
+  fuel: string
+  transmission: string
+  condition: string
+  vin: string
+  location: string
+  description: string
+}
+
+function SellFormModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [form, setForm] = useState<SellFormData>({
+    ownerName: '', email: '', role: 'owner', make: '', model: '', year: '', mileage: '', price: '',
+    fuel: '', transmission: '', condition: '', vin: '', location: '', description: ''
+  })
+  const [files, setFiles] = useState<File[]>([])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    if (open) window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  function onChange<K extends keyof SellFormData>(key: K, value: SellFormData[K]) {
+    setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  function onFilesSelected(list: FileList | null) {
+    if (!list) return
+    const next = Array.from(list).filter(f => f.type.startsWith('image/'))
+    setFiles(prev => [...prev, ...next].slice(0, 12))
+  }
+
+  function onDrop(ev: React.DragEvent<HTMLDivElement>) {
+    ev.preventDefault()
+    onFilesSelected(ev.dataTransfer.files)
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    // Placeholder submit: preview data in console. Wire to backend later.
+    const payload = { ...form, images: files.map(f => ({ name: f.name, size: f.size, type: f.type })) }
+    console.log('Sell submission', payload)
+    alert('Your car submission has been captured locally. Backend hookup pending.')
+    onClose()
+    setFiles([])
+    setForm({ ownerName: '', email: '', role: 'owner', make: '', model: '', year: '', mileage: '', price: '', fuel: '', transmission: '', condition: '', vin: '', location: '', description: '' })
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Sell your car</h3>
+          <button className="modal-close" aria-label="Close" onClick={onClose}>×</button>
+        </div>
+        <form className="sell-form" onSubmit={onSubmit}>
+          <div className="form-grid">
+            <div className="form-field">
+              <label>Name</label>
+              <input className="input" value={form.ownerName} onChange={e=>onChange('ownerName', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Email</label>
+              <input className="input" type="email" value={form.email} onChange={e=>onChange('email', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Role</label>
+              <select className="input" value={form.role} onChange={e=>onChange('role', e.target.value as SellFormData['role'])}>
+                <option value="owner">Owner</option>
+                <option value="dealer">Dealer</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Make</label>
+              <input className="input" value={form.make} onChange={e=>onChange('make', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Model</label>
+              <input className="input" value={form.model} onChange={e=>onChange('model', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Year</label>
+              <input className="input" inputMode="numeric" value={form.year} onChange={e=>onChange('year', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Mileage</label>
+              <input className="input" inputMode="numeric" value={form.mileage} onChange={e=>onChange('mileage', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Price</label>
+              <input className="input" inputMode="numeric" value={form.price} onChange={e=>onChange('price', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Fuel</label>
+              <input className="input" value={form.fuel} onChange={e=>onChange('fuel', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Transmission</label>
+              <input className="input" value={form.transmission} onChange={e=>onChange('transmission', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Condition</label>
+              <input className="input" value={form.condition} onChange={e=>onChange('condition', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>VIN (optional)</label>
+              <input className="input" value={form.vin} onChange={e=>onChange('vin', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label>Location</label>
+              <input className="input" value={form.location} onChange={e=>onChange('location', e.target.value)} />
+            </div>
+            <div className="form-field form-span-2">
+              <label>Description</label>
+              <textarea className="input" rows={3} value={form.description} onChange={e=>onChange('description', e.target.value)} />
+            </div>
+          </div>
+
+          <div className="form-block">
+            <label>Photos</label>
+            <div className="dropzone" onDragOver={e=>e.preventDefault()} onDrop={onDrop}>
+              <input id="photos" type="file" accept="image/*" multiple onChange={(e)=>onFilesSelected(e.target.files)} hidden />
+              <p>Drag and drop images here or <label htmlFor="photos" className="link">browse</label></p>
+            </div>
+            {files.length > 0 && (
+              <div className="thumb-grid">
+                {files.map((f, i) => (
+                  <div key={i} className="thumb">
+                    <img src={URL.createObjectURL(f)} alt={f.name} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="button secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="button">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
-type CarItem = { id: string; name: string; subtitle: string; price: string; tags: string[] }
+type CarItem = {
+  id: string
+  name: string
+  subtitle: string
+  price: string
+  miles: string
+  image: string
+  tags: string[]
+}
 
 const CATALOG: CarItem[] = [
-  { id: 'c1', name: 'City Compacto Eco', subtitle: 'Urbano, económico', price: 'US$ 12.500', tags: ['hatchback','económico','ciudad','compacto','bajo consumo'] },
-  { id: 'c2', name: 'Sedán Confort Plus', subtitle: 'Ruta y familia', price: 'US$ 17.800', tags: ['sedán','familia','baúl grande','confort','silencioso'] },
-  { id: 'c3', name: 'SUV Familiar Ruta+', subtitle: 'Espacio y seguridad', price: 'US$ 22.900', tags: ['suv','seguro','viajes largos','espacio','estabilidad'] },
-  { id: 'c4', name: 'Híbrido Diario', subtitle: 'Bajo consumo mixto', price: 'US$ 24.200', tags: ['híbrido','económico','ciudad','ruta','silencioso'] },
-  { id: 'c5', name: 'Eléctrico Urbano', subtitle: 'Autonomía 300 km', price: 'US$ 28.000', tags: ['eléctrico','carga rápida','ciudad','bajo mantenimiento'] },
-  { id: 'c6', name: 'Crossover Playa', subtitle: 'Espacio y altura', price: 'US$ 19.900', tags: ['playa','baúl grande','altura al suelo','familiar'] },
-  { id: 'c7', name: 'Compacto Automático', subtitle: 'Fácil de manejar', price: 'US$ 14.900', tags: ['automático','compacto','económico','seguro'] },
-  { id: 'c8', name: 'Offroad Ligero', subtitle: 'Tierra ocasional', price: 'US$ 21.300', tags: ['tierra','suspensión','altura al suelo','tracción'] },
-  { id: 'c9', name: 'Ruta Silenciosa ADAS', subtitle: 'Asistencias y confort', price: 'US$ 26.400', tags: ['ruta','adas','silencioso','seguro'] }
+  {
+    id: 'c1',
+    name: 'Toyota RAV4 2022',
+    subtitle: '25,000 miles',
+    price: '$28,500',
+    miles: '25,000 miles',
+    image: 'https://images.unsplash.com/photo-1483721310020-03333e577078?auto=format&fit=crop&w=1600&q=80',
+    tags: ['suv','seguro','viajes largos','espacio','estabilidad']
+  },
+  {
+    id: 'c2',
+    name: 'Honda CR-V 2021',
+    subtitle: '32,000 miles',
+    price: '$27,900',
+    miles: '32,000 miles',
+    image: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1600&q=80',
+    tags: ['suv','familia','confort','económico']
+  },
+  {
+    id: 'c3',
+    name: 'Ford Escape 2022',
+    subtitle: '18,000 miles',
+    price: '$29,200',
+    miles: '18,000 miles',
+    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1600&auto=format&fit=crop',
+    tags: ['suv','seguro','familia']
+  },
+  {
+    id: 'c4',
+    name: 'Mazda CX-5 2022',
+    subtitle: '22,000 miles',
+    price: '$29,800',
+    miles: '22,000 miles',
+    image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=1600&auto=format&fit=crop',
+    tags: ['suv','confort','ruta','silencioso']
+  },
+  {
+    id: 'c5',
+    name: 'City Compacto Eco',
+    subtitle: 'Urbano, económico',
+    price: '$12,500',
+    miles: '12,000 miles',
+    image: 'https://images.unsplash.com/photo-1502877338535-766e1452684a?q=80&w=1600&auto=format&fit=crop',
+    tags: ['hatchback','económico','ciudad','compacto','bajo consumo']
+  },
+  {
+    id: 'c6',
+    name: 'Sedán Confort Plus',
+    subtitle: 'Ruta y familia',
+    price: '$17,800',
+    miles: '20,100 miles',
+    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1600&auto=format&fit=crop',
+    tags: ['sedán','familia','baúl grande','confort','silencioso']
+  }
 ]
 
 function computeRecommendations(query: string, limit = 6): CarItem[] {
@@ -60,7 +269,7 @@ function computeRecommendations(query: string, limit = 6): CarItem[] {
 
 export default function App() {
   const backendUrl = useMemo(() => getBackendUrl(), [])
-  const [logoSrc, setLogoSrc] = useState<string>('/logo2.png')
+  const [logoSrc, setLogoSrc] = useState<string>('/aicarlogo2.png')
 
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
@@ -71,15 +280,36 @@ export default function App() {
   const [animatingStart, setAnimatingStart] = useState(false)
   const [results, setResults] = useState<CarItem[]>([])
   const [animatingResults, setAnimatingResults] = useState(false)
+  const [currentSuggestionIndex, setCurrentSuggestionIndex] = useState(0)
   const resultsTimerRef = useRef<number | null>(null)
+  const suggestionTimerRef = useRef<number | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const heroInputRef = useRef<HTMLInputElement | null>(null)
   const chatRef = useRef<HTMLDivElement | null>(null)
+  const [sellOpen, setSellOpen] = useState(false)
 
   // autoscroll chat to bottom on new messages
   useEffect(() => {
     if (!chatRef.current) return
     chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, loading])
+
+  // cycle through search suggestions
+  useEffect(() => {
+    if (hasStarted) return // stop cycling once chat starts
+    
+    const cycleSuggestions = () => {
+      setCurrentSuggestionIndex((prev) => (prev + 1) % PROMPT_SUGGESTIONS.length)
+    }
+    
+    suggestionTimerRef.current = window.setTimeout(cycleSuggestions, 3000)
+    
+    return () => {
+      if (suggestionTimerRef.current) {
+        window.clearTimeout(suggestionTimerRef.current)
+      }
+    }
+  }, [currentSuggestionIndex, hasStarted])
 
   function autoResize(el: HTMLTextAreaElement) {
     const min = 40
@@ -93,6 +323,20 @@ export default function App() {
     if (resultsTimerRef.current) window.clearTimeout(resultsTimerRef.current)
     setAnimatingResults(true)
     resultsTimerRef.current = window.setTimeout(() => setAnimatingResults(false), 350)
+  }
+
+  function handleSellClick() {
+    setSellOpen(true)
+  }
+
+  function handleLogoClick() {
+    setHasStarted(false)
+    setMessages([])
+    setResults([])
+    setMessage('')
+    setThreadId(null)
+    setError(null)
+    setLoading(false)
   }
 
   async function ensureThread(): Promise<string> {
@@ -163,12 +407,18 @@ export default function App() {
       {/* Top bar with nav and sign-in */}
       <div className="topbar topbar-split">
         <div className="brand-wrap">
-          <img src={logoSrc} onError={() => setLogoSrc('/logo.png')} alt="AiCar logo" className="brand-logo" />
-          <div className="brand">AiCar</div>
+          <img 
+            src={logoSrc} 
+            onError={() => setLogoSrc('/logo2.png')} 
+            alt="AiCar logo" 
+            className="brand-logo" 
+            onClick={handleLogoClick}
+            style={{ cursor: 'pointer' }}
+          />
         </div>
         <nav className="nav">
           <a>Buy</a>
-          <a>Sell</a>
+          <a role="button" onClick={handleSellClick}>Sell</a>
           <a>Value</a>
           <a>Research</a>
         </nav>
@@ -185,8 +435,9 @@ export default function App() {
               <input
                 type="text"
                 className="search-input"
-                placeholder="Search by make, model, or keyword"
+                placeholder={PROMPT_SUGGESTIONS[currentSuggestionIndex]}
                 value={message}
+                ref={heroInputRef}
                 onChange={(e)=>setMessage(e.target.value)}
               />
               <button className="search-button" type="submit">Search</button>
@@ -238,23 +489,28 @@ export default function App() {
               <div className={`results-grid ${animatingResults ? 'crossfade' : ''}`}>
                 {results.map(item => (
                   <article key={item.id} className="result-card">
-                    <div className="result-head">
-                      <h3 className="result-title">{item.name}</h3>
+                    <div className="result-media">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        loading="lazy"
+                        onError={(e) => {
+                          const img = e.currentTarget
+                          img.onerror = null
+                          img.src = '/hero.png'
+                        }}
+                      />
+                      <button className="fav" aria-label="Save">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 21s-6.716-4.29-9.428-7.002C-0.14 11.57-.14 7.93 2.572 6.002 4.5 4.644 7.07 5.002 8.5 6.93L12 11l3.5-4.07c1.43-1.928 4-2.286 5.928-.928 2.712 1.928 2.712 5.57 0 7.996C18.716 16.71 12 21 12 21z" fill="currentColor"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <h3 className="result-title">{item.name}</h3>
+                    <div className="result-meta">
+                      <span className="result-miles">{item.miles}</span>
                       <span className="result-price">{item.price}</span>
                     </div>
-                    <p className="result-sub">{item.subtitle}</p>
-                    <div className="result-tags">
-                      {item.tags.slice(0,5).map((t, i) => (
-                        <span key={i} className="chip tag">{t}</span>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="chip"
-                      onClick={() => setMessage(`Estoy considerando ${item.name}. ¿Qué opinas para mi caso?`)}
-                    >
-                      Use as a starting point
-                    </button>
                   </article>
                 ))}
                 {results.length === 0 && (
@@ -269,6 +525,8 @@ export default function App() {
       <footer className="footer">
         <span>Backend: {backendUrl}</span>
       </footer>
+
+      <SellFormModal open={sellOpen} onClose={() => setSellOpen(false)} />
     </div>
   )
 }
