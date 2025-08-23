@@ -13,6 +13,12 @@ db = client['assistant_config']
 chatbots_collection = db['chatbots']
 
 def get_modes():
+    # Check for environment variable first
+    env_base_id = os.getenv("OPENAI_ASSISTANT_ID")
+    if env_base_id:
+        return False, True, "aicar", env_base_id
+    
+    # Fall back to MongoDB configuration
     cfg = db['config'].find_one({})
     if not cfg:
         return False, False, "default", None
