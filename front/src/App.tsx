@@ -1,532 +1,650 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import svgPaths from "./imports/svg-lh0ecxeb4v";
+import imgASleekModernCarParkedOnAScenicRoadWithMountainsInTheBackgroundDuringSunset from "./assets/52f59651552a527d7caa04cf128d5756924d97a3.png";
 
-function getBackendUrl(): string {
-  const envUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
-  return (envUrl && envUrl.trim().length > 0) ? envUrl : 'http://localhost:8080'
-}
-
-const PROMPT_SUGGESTIONS: string[] = [
-  'I need a reliable and fuel-efficient SUV under $30,000.',
-  'Looking for a compact city hatchback with low maintenance.',
-  'Family sedan for 5 with large trunk and safety features.',
-  'An electric car for 60 km daily commute with good support.'
-]
-
-// Sell form modal for owners/dealers
-type SellFormData = {
-  ownerName: string
-  email: string
-  role: 'owner' | 'dealer'
-  make: string
-  model: string
-  year: string
-  mileage: string
-  price: string
-  fuel: string
-  transmission: string
-  condition: string
-  vin: string
-  location: string
-  description: string
-}
-
-function SellFormModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [form, setForm] = useState<SellFormData>({
-    ownerName: '', email: '', role: 'owner', make: '', model: '', year: '', mileage: '', price: '',
-    fuel: '', transmission: '', condition: '', vin: '', location: '', description: ''
-  })
-  const [files, setFiles] = useState<File[]>([])
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    if (open) window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
-
-  if (!open) return null
-
-  function onChange<K extends keyof SellFormData>(key: K, value: SellFormData[K]) {
-    setForm(prev => ({ ...prev, [key]: value }))
-  }
-
-  function onFilesSelected(list: FileList | null) {
-    if (!list) return
-    const next = Array.from(list).filter(f => f.type.startsWith('image/'))
-    setFiles(prev => [...prev, ...next].slice(0, 12))
-  }
-
-  function onDrop(ev: React.DragEvent<HTMLDivElement>) {
-    ev.preventDefault()
-    onFilesSelected(ev.dataTransfer.files)
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    // Placeholder submit: preview data in console. Wire to backend later.
-    const payload = { ...form, images: files.map(f => ({ name: f.name, size: f.size, type: f.type })) }
-    console.log('Sell submission', payload)
-    alert('Your car submission has been captured locally. Backend hookup pending.')
-    onClose()
-    setFiles([])
-    setForm({ ownerName: '', email: '', role: 'owner', make: '', model: '', year: '', mileage: '', price: '', fuel: '', transmission: '', condition: '', vin: '', location: '', description: '' })
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 className="modal-title">Sell your car</h3>
-          <button className="modal-close" aria-label="Close" onClick={onClose}>×</button>
-        </div>
-        <form className="sell-form" onSubmit={onSubmit}>
-          <div className="form-grid">
-            <div className="form-field">
-              <label>Name</label>
-              <input className="input" value={form.ownerName} onChange={e=>onChange('ownerName', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Email</label>
-              <input className="input" type="email" value={form.email} onChange={e=>onChange('email', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Role</label>
-              <select className="input" value={form.role} onChange={e=>onChange('role', e.target.value as SellFormData['role'])}>
-                <option value="owner">Owner</option>
-                <option value="dealer">Dealer</option>
-              </select>
-            </div>
-            <div className="form-field">
-              <label>Make</label>
-              <input className="input" value={form.make} onChange={e=>onChange('make', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Model</label>
-              <input className="input" value={form.model} onChange={e=>onChange('model', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Year</label>
-              <input className="input" inputMode="numeric" value={form.year} onChange={e=>onChange('year', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Mileage</label>
-              <input className="input" inputMode="numeric" value={form.mileage} onChange={e=>onChange('mileage', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Price</label>
-              <input className="input" inputMode="numeric" value={form.price} onChange={e=>onChange('price', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Fuel</label>
-              <input className="input" value={form.fuel} onChange={e=>onChange('fuel', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Transmission</label>
-              <input className="input" value={form.transmission} onChange={e=>onChange('transmission', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Condition</label>
-              <input className="input" value={form.condition} onChange={e=>onChange('condition', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>VIN (optional)</label>
-              <input className="input" value={form.vin} onChange={e=>onChange('vin', e.target.value)} />
-            </div>
-            <div className="form-field">
-              <label>Location</label>
-              <input className="input" value={form.location} onChange={e=>onChange('location', e.target.value)} />
-            </div>
-            <div className="form-field form-span-2">
-              <label>Description</label>
-              <textarea className="input" rows={3} value={form.description} onChange={e=>onChange('description', e.target.value)} />
-            </div>
-          </div>
-
-          <div className="form-block">
-            <label>Photos</label>
-            <div className="dropzone" onDragOver={e=>e.preventDefault()} onDrop={onDrop}>
-              <input id="photos" type="file" accept="image/*" multiple onChange={(e)=>onFilesSelected(e.target.files)} hidden />
-              <p>Drag and drop images here or <label htmlFor="photos" className="link">browse</label></p>
-            </div>
-            {files.length > 0 && (
-              <div className="thumb-grid">
-                {files.map((f, i) => (
-                  <div key={i} className="thumb">
-                    <img src={URL.createObjectURL(f)} alt={f.name} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="modal-actions">
-            <button type="button" className="button secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="button">Submit</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
+// Types for backend integration
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
 type CarItem = {
-  id: string
-  name: string
-  subtitle: string
-  price: string
-  miles: string
-  image: string
-  tags: string[]
+  id: string | number
+  marca: string
+  modelo: string
+  version?: string
+  anio: number
+  tipo_carroceria?: string
+  tipo_combustible?: string
+  transmision?: string
+  potencia?: number
+  consumo?: number
+  kilometros?: number
+  imagen_url?: string
 }
 
-const CATALOG: CarItem[] = [
-  {
-    id: 'c1',
-    name: 'Toyota RAV4 2022',
-    subtitle: '25,000 miles',
-    price: '$28,500',
-    miles: '25,000 miles',
-    image: 'https://images.unsplash.com/photo-1483721310020-03333e577078?auto=format&fit=crop&w=1600&q=80',
-    tags: ['suv','seguro','viajes largos','espacio','estabilidad']
-  },
-  {
-    id: 'c2',
-    name: 'Honda CR-V 2021',
-    subtitle: '32,000 miles',
-    price: '$27,900',
-    miles: '32,000 miles',
-    image: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1600&q=80',
-    tags: ['suv','familia','confort','económico']
-  },
-  {
-    id: 'c3',
-    name: 'Ford Escape 2022',
-    subtitle: '18,000 miles',
-    price: '$29,200',
-    miles: '18,000 miles',
-    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1600&auto=format&fit=crop',
-    tags: ['suv','seguro','familia']
-  },
-  {
-    id: 'c4',
-    name: 'Mazda CX-5 2022',
-    subtitle: '22,000 miles',
-    price: '$29,800',
-    miles: '22,000 miles',
-    image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=1600&auto=format&fit=crop',
-    tags: ['suv','confort','ruta','silencioso']
-  },
-  {
-    id: 'c5',
-    name: 'City Compacto Eco',
-    subtitle: 'Urbano, económico',
-    price: '$12,500',
-    miles: '12,000 miles',
-    image: 'https://images.unsplash.com/photo-1502877338535-766e1452684a?q=80&w=1600&auto=format&fit=crop',
-    tags: ['hatchback','económico','ciudad','compacto','bajo consumo']
-  },
-  {
-    id: 'c6',
-    name: 'Sedán Confort Plus',
-    subtitle: 'Ruta y familia',
-    price: '$17,800',
-    miles: '20,100 miles',
-    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1600&auto=format&fit=crop',
-    tags: ['sedán','familia','baúl grande','confort','silencioso']
-  }
-]
-
-function computeRecommendations(query: string, limit = 6): CarItem[] {
-  const q = query.toLowerCase()
-  const keywords: Record<string,string[]> = {
-    playa: ['playa','equipaje','baúl','espacio'],
-    ciudad: ['ciudad','urbano','compacto','estacionar'],
-    economico: ['econ','barato','ahorro','bajo consumo'],
-    familia: ['familia','baúl','espacio','confort'],
-    seguro: ['seguro','adas','asistencias','estabilidad'],
-    suv: ['suv','crossover','altura'],
-    automatico: ['automático','automatico'],
-    hibrido: ['híbrido','hibrido'],
-    electrico: ['eléctrico','electrico','carga'],
-    tierra: ['tierra','offroad','ripio','suspensión'],
-    ruta: ['ruta','viajes','silencioso']
-  }
-  function score(item: CarItem): number {
-    let s = 0
-    for (const [_, kws] of Object.entries(keywords)) {
-      for (const k of kws) if (q.includes(k)) s += item.tags.some(t=>t.includes(k.replace(/í|ì|ï/g,'i')) || t.includes(k)) ? 2 : 1
-    }
-    for (const t of item.tags) if (q.includes(t)) s += 1
-    return s
-  }
-  const ranked = [...CATALOG]
-    .map(it => ({ it, s: score(it) }))
-    .sort((a,b)=> b.s - a.s)
-    .map(x=>x.it)
-  return (ranked[0] && (ranked[0].tags.length>0)) ? ranked.slice(0, limit) : CATALOG.slice(0, limit)
+type BackendCarItem = {
+  id: number
+  marca: string
+  modelo: string
+  version: string
+  anio: number
+  tipo_carroceria: string
+  tipo_combustible: string
+  transmision: string
+  sistema_traccion: string
+  potencia: number
+  torque: number
+  consumo: number
+  autonomia_estimada: number
+  kilometros: number
+  imagen_url: string
+  // ... other fields
 }
 
-export default function App() {
-  const backendUrl = useMemo(() => getBackendUrl(), [])
-  const [logoSrc, setLogoSrc] = useState<string>('/aicarlogo2.png')
+function getBackendUrl(): string {
+  const envUrl = import.meta.env.VITE_BACKEND_URL as string | undefined
+  return (envUrl && envUrl.trim().length > 0) ? envUrl : 'http://localhost:5000'
+}
 
-  const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [threadId, setThreadId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [hasStarted, setHasStarted] = useState(false)
-  const [animatingStart, setAnimatingStart] = useState(false)
-  const [results, setResults] = useState<CarItem[]>([])
-  const [animatingResults, setAnimatingResults] = useState(false)
-  const [currentSuggestionIndex, setCurrentSuggestionIndex] = useState(0)
-  const resultsTimerRef = useRef<number | null>(null)
-  const suggestionTimerRef = useRef<number | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const heroInputRef = useRef<HTMLInputElement | null>(null)
-  const chatRef = useRef<HTMLDivElement | null>(null)
-  const [sellOpen, setSellOpen] = useState(false)
+function TypingText({ text, speed = 50 }: { text: string; speed?: number }) {
+  const [displayText, setDisplayText] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  // autoscroll chat to bottom on new messages
   useEffect(() => {
-    if (!chatRef.current) return
-    chatRef.current.scrollTop = chatRef.current.scrollHeight
-  }, [messages, loading])
+    if (currentIndex < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      }, speed);
 
-  // cycle through search suggestions
-  useEffect(() => {
-    if (hasStarted) return // stop cycling once chat starts
-    
-    const cycleSuggestions = () => {
-      setCurrentSuggestionIndex((prev) => (prev + 1) % PROMPT_SUGGESTIONS.length)
+      return () => clearTimeout(timeout);
     }
-    
-    suggestionTimerRef.current = window.setTimeout(cycleSuggestions, 3000)
-    
+  }, [currentIndex, text, speed]);
+
+  return (
+    <span className="relative block w-full">
+      <span className="invisible block w-full" aria-hidden="true">
+        {text}
+      </span>
+      <span className="absolute inset-0 w-full">
+        {displayText}
+        {currentIndex < text.length && (
+          <motion.span
+            animate={{ opacity: [1, 0] }}
+            transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
+            className="inline-block"
+          >
+            |
+          </motion.span>
+        )}
+      </span>
+    </span>
+  );
+}
+
+function Logo() {
+  const handleLogoClick = () => {
+    window.location.reload();
+  };
+
+  return (
+    <div className="flex gap-2 h-8 items-center justify-start relative" data-name="logo">
+      <button onClick={handleLogoClick} className="cursor-pointer hover:opacity-70 transition-opacity">
+        <div className="font-racing text-[28px] text-[#281d1b] lowercase">
+          <p className="leading-none">AICar</p>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+function Search() {
+  return (
+    <div className="relative size-6" data-name="search">
+      <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 24 24">
+        <g id="search">
+          <path d={svgPaths.p20679400} id="Icon" stroke="#281D1B" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function User() {
+  return (
+    <div className="relative size-6" data-name="user">
+      <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 24 24">
+        <g id="user">
+          <path d={svgPaths.p2e0e8900} id="Icon" stroke="#281D1B" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function ShoppingBag() {
+  return (
+    <div className="relative size-6" data-name="shopping-bag">
+      <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 24 24">
+        <g id="shopping-bag">
+          <path d={svgPaths.p13cfd080} id="Icon" stroke="#281D1B" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function Icons() {
+  return (
+    <div className="flex gap-6 items-end justify-start relative" data-name="icons">
+      <button className="cursor-pointer hover:opacity-70 transition-opacity">
+        <Search />
+      </button>
+      <button className="cursor-pointer hover:opacity-70 transition-opacity">
+        <User />
+      </button>
+      <button className="cursor-pointer hover:opacity-70 transition-opacity">
+        <ShoppingBag />
+      </button>
+    </div>
+  );
+}
+
+function ChevronDown() {
+  return (
+    <div className="relative size-4" data-name="chevron-down">
+      <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 16 16">
+        <g id="chevron-down">
+          <path d="M4 6L8 10L12 6" id="Icon" stroke="#281D1B" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function PageLink({ title }: { title: string }) {
+  return (
+    <div className="flex gap-1 items-center justify-start relative" data-name="pageLink">
+      <button className="cursor-pointer hover:opacity-70 transition-opacity">
+        <div className="font-outfit font-medium text-[15px] text-[#281d1b]">
+          <p className="leading-[20px]">{title}</p>
+        </div>
+      </button>
+      <ChevronDown />
+    </div>
+  );
+}
+
+function PageLinks() {
+  return (
+    <div className="absolute flex gap-8 items-start justify-start left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" data-name="pageLinks">
+      <PageLink title="Home" />
+      <PageLink title="About Us" />
+      <PageLink title="Listings" />
+      <PageLink title="Contact" />
+      <PageLink title="Support" />
+    </div>
+  );
+}
+
+function StoreHeaderNavBar() {
+  return (
+    <div className="bg-[#ff5733] box-border flex items-center justify-between overflow-hidden px-12 py-4 relative w-full z-[3]" data-name="Store - header nav bar">
+      <Logo />
+      <Icons />
+      <PageLinks />
+    </div>
+  );
+}
+
+function ASleekModernCarParkedOnAScenicRoadWithMountainsInTheBackgroundDuringSunset() {
+  return (
+    <div 
+      className="bg-center bg-cover bg-no-repeat h-[672px] relative rounded-[28px] w-full" 
+      data-name="Car hero image" 
+      style={{ backgroundImage: `url('${imgASleekModernCarParkedOnAScenicRoadWithMountainsInTheBackgroundDuringSunset}')` }}
+    >
+      <div className="absolute border-[1.5px] border-transparent inset-0 pointer-events-none rounded-[28px]" />
+    </div>
+  );
+}
+
+function InputStandard({ value, onChange, placeholder, onKeyDown }: { 
+  value: string; 
+  onChange: (value: string) => void; 
+  placeholder: string;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+}) {
+  return (
+    <div className="flex-1 bg-[#fffbfa] min-h-[48px] relative rounded-lg" data-name="inputStandard">
+      <div className="absolute border-[1.5px] border-transparent inset-0 pointer-events-none rounded-lg" />
+      <div className="flex flex-row items-center relative size-full">
+        <div className="box-border flex gap-2 items-center justify-start px-4 py-2 relative size-full">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder={placeholder}
+            className="flex-1 font-outfit font-normal text-[20px] text-[#281d1b] bg-transparent border-none outline-none placeholder:text-[rgba(46,24,20,0.4)]"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ButtonLarge({ onClick, children, disabled = false }: { 
+  onClick: () => void; 
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <button 
+      onClick={onClick}
+      disabled={disabled}
+      className={`${disabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#ff5733] hover:bg-[#e94c28] cursor-pointer'} box-border flex items-center justify-center px-6 py-3 relative rounded-lg transition-colors`}
+      data-name="buttonLarge"
+    >
+      <div className="font-outfit font-medium text-[20px] text-[#050100]">
+        <p className="leading-[24px]">{children}</p>
+      </div>
+    </button>
+  );
+}
+
+function SearchFrame({ searchQuery, setSearchQuery, onSearch, isLoading }: { 
+  searchQuery: string; 
+  setSearchQuery: (value: string) => void; 
+  onSearch: () => void;
+  isLoading: boolean;
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isLoading) {
+      onSearch();
+    }
+  };
+
+  return (
+    <div className="flex gap-3 items-start justify-start relative w-[600px]" data-name="SearchFrame">
+      <InputStandard 
+        value={searchQuery} 
+        onChange={setSearchQuery} 
+        placeholder="Type your car search prompt here..." 
+        onKeyDown={handleKeyDown}
+      />
+      <ButtonLarge onClick={onSearch} disabled={isLoading}>
+        {isLoading ? 'Searching...' : 'Search'}
+      </ButtonLarge>
+    </div>
+  );
+}
+
+function LandingPageHero({ searchQuery, setSearchQuery, onSearch, showSearchForm, isLoading }: { 
+  searchQuery: string; 
+  setSearchQuery: (value: string) => void; 
+  onSearch: () => void; 
+  showSearchForm: boolean;
+  isLoading: boolean;
+}) {
+  return (
+    <div className="bg-[#fffbfa] box-border flex flex-col gap-12 items-center justify-start px-0 py-24 relative w-full z-[4]" data-name="Landing Page Hero">
+      <div className="font-outfit font-bold text-[120px] text-[#281d1b] text-center w-full z-[6]">
+        <p className="leading-[120px]">
+          <TypingText text="Find Your Perfect Ride with AI-Powered Search" speed={80} />
+        </p>
+      </div>
+      <div className="relative w-full z-[5]">
+        <ASleekModernCarParkedOnAScenicRoadWithMountainsInTheBackgroundDuringSunset />
+        
+        {showSearchForm && (
+          <motion.div
+            initial={{ opacity: 0, y: 200 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="absolute inset-0 flex flex-col items-center justify-center z-[7]"
+          >
+            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
+              <div className="mb-6">
+                <div className="font-outfit font-bold text-[#281d1b] text-[32px] text-center">
+                  <p>Enter your car search prompt:</p>
+                </div>
+              </div>
+              <SearchFrame 
+                searchQuery={searchQuery} 
+                setSearchQuery={setSearchQuery} 
+                onSearch={onSearch} 
+                isLoading={isLoading}
+              />
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChatMessage({ message, isUser }: { message: string; isUser: boolean }) {
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+      <div className={`max-w-[80%] p-4 rounded-xl ${
+        isUser 
+          ? 'bg-[#ff5733] text-white' 
+          : 'bg-gray-100 text-[#281d1b]'
+      }`}>
+        <p className="font-outfit text-[14px] leading-[20px]">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function CarResultCard({ car }: { car: CarItem }) {
+  const getCarImage = () => {
+    if (car.imagen_url && car.imagen_url !== '') {
+      return car.imagen_url;
+    }
+    // Fallback to a default car image
+    return imgASleekModernCarParkedOnAScenicRoadWithMountainsInTheBackgroundDuringSunset;
+  };
+
+  const formatPrice = (car: CarItem) => {
+    // Since we don't have price in MySQL, we'll estimate based on year and other factors
+    const basePrice = Math.max(5000, 50000 - (2024 - car.anio) * 2000);
+    return `$${basePrice.toLocaleString()}`;
+  };
+
+  const formatKilometers = (km?: number) => {
+    if (!km) return 'N/A';
+    return `${km.toLocaleString()} km`;
+  };
+
+  return (
+    <div className="bg-[#fffbfa] border border-gray-200 rounded-xl p-4 flex flex-col gap-3 hover:shadow-lg transition-shadow cursor-pointer">
+      <div className="relative h-48 rounded-lg overflow-hidden bg-gray-100">
+        <img
+          src={getCarImage()}
+          alt={`${car.marca} ${car.modelo}`}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            const img = e.currentTarget;
+            img.onerror = null;
+            img.src = imgASleekModernCarParkedOnAScenicRoadWithMountainsInTheBackgroundDuringSunset;
+          }}
+        />
+        <button className="absolute top-2 right-2 bg-white border border-gray-200 text-gray-600 rounded-full w-8 h-8 flex items-center justify-center hover:text-red-500 hover:border-gray-300 transition-colors">
+          ♥
+        </button>
+      </div>
+      <div className="flex flex-col gap-2">
+        <h3 className="font-outfit font-bold text-[17px] text-[#281d1b]">
+          {car.marca} {car.modelo} {car.version && `${car.version}`}
+        </h3>
+        <div className="font-outfit text-[15px] text-gray-600">
+          {car.anio} • {car.tipo_carroceria} • {car.transmision} • {car.tipo_combustible}
+          {car.consumo && ` • ${car.consumo} L/100km`}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="font-outfit text-[13px] text-gray-500">
+            {formatKilometers(car.kilometros)}
+          </span>
+          <span className="font-outfit font-bold text-[18px] text-[#ff5733]">
+            {formatPrice(car)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="flex justify-center items-center py-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ff5733]"></div>
+    </div>
+  );
+}
+
+export default function AICar() {
+  const backendUrl = useMemo(() => getBackendUrl(), []);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [cars, setCars] = useState<CarItem[]>([]);
+  const [showSearchForm, setShowSearchForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Animation sequence
+  useEffect(() => {
+    const searchFormTimer = setTimeout(() => {
+      setShowSearchForm(true);
+    }, 500);
+
     return () => {
-      if (suggestionTimerRef.current) {
-        window.clearTimeout(suggestionTimerRef.current)
-      }
+      clearTimeout(searchFormTimer);
+    };
+  }, []);
+
+  const ensureThread = async (): Promise<string> => {
+    if (threadId) return threadId;
+    
+    const response = await fetch(`${backendUrl}/start`, { method: 'GET' });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `Error starting conversation (${response.status})`);
     }
-  }, [currentSuggestionIndex, hasStarted])
+    
+    const data = await response.json();
+    if (!data.thread_id) throw new Error('Missing thread_id in backend response');
+    
+    setThreadId(data.thread_id);
+    return data.thread_id as string;
+  };
 
-  function autoResize(el: HTMLTextAreaElement) {
-    const min = 40
-    const max = 220
-    el.style.height = 'auto'
-    const next = Math.min(max, Math.max(min, el.scrollHeight))
-    el.style.height = `${next}px`
-  }
-
-  function triggerResultsAnimation() {
-    if (resultsTimerRef.current) window.clearTimeout(resultsTimerRef.current)
-    setAnimatingResults(true)
-    resultsTimerRef.current = window.setTimeout(() => setAnimatingResults(false), 350)
-  }
-
-  function handleSellClick() {
-    setSellOpen(true)
-  }
-
-  function handleLogoClick() {
-    setHasStarted(false)
-    setMessages([])
-    setResults([])
-    setMessage('')
-    setThreadId(null)
-    setError(null)
-    setLoading(false)
-  }
-
-  async function ensureThread(): Promise<string> {
-    if (threadId) return threadId
-    const res = await fetch(`${backendUrl}/start`, { method: 'GET' })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error || `Error al iniciar la conversación (${res.status})`)
-    }
-    const data = await res.json()
-    if (!data.thread_id) throw new Error('Falta thread_id en la respuesta del backend')
-    setThreadId(data.thread_id)
-    return data.thread_id as string
-  }
-
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-
-    const text = message.trim()
-    if (text.length === 0 || loading) return
-
-    setLoading(true)
+  const searchCars = async (whereClause?: string) => {
     try {
-      const id = await ensureThread()
-
-      if (!hasStarted) {
-        setHasStarted(true)
-        setAnimatingStart(true)
-        const recs = computeRecommendations(text)
-        setResults(recs)
-        triggerResultsAnimation()
-        window.setTimeout(() => setAnimatingStart(false), 450)
-      } else {
-        const recs = computeRecommendations(text)
-        setResults(recs)
-        triggerResultsAnimation()
+      const requestBody: any = { limit: 6 };
+      if (whereClause) {
+        requestBody.where = whereClause;
       }
 
-      setMessages((prev) => [...prev, { role: 'user', content: text }])
-      setMessage('')
-      requestAnimationFrame(() => {
-        if (textareaRef.current) autoResize(textareaRef.current)
-      })
-
-      const chatRes = await fetch(`${backendUrl}/chat`, {
+      const response = await fetch(`${backendUrl}/search_sql`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thread_id: id, message: text })
-      })
-      if (!chatRes.ok) {
-        const body = await chatRes.json().catch(() => ({}))
-        throw new Error(body.error || `Error del chat (${chatRes.status})`)
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Search failed (${response.status})`);
       }
-      const data = await chatRes.json()
-      const assistantText = typeof data.response === 'string' ? data.response : JSON.stringify(data)
-      setMessages((prev) => [...prev, { role: 'assistant', content: assistantText }])
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error desconocido'
-      setError(msg)
-    } finally {
-      setLoading(false)
+
+      const data = await response.json();
+      const backendCars: BackendCarItem[] = data.items || [];
+      
+      // Transform backend cars to our CarItem format
+      const transformedCars: CarItem[] = backendCars.map(car => ({
+        id: car.id,
+        marca: car.marca,
+        modelo: car.modelo,
+        version: car.version,
+        anio: car.anio,
+        tipo_carroceria: car.tipo_carroceria,
+        tipo_combustible: car.tipo_combustible,
+        transmision: car.transmision,
+        potencia: car.potencia,
+        consumo: car.consumo,
+        kilometros: car.kilometros,
+        imagen_url: car.imagen_url
+      }));
+
+      setCars(transformedCars);
+    } catch (error) {
+      console.error('Error searching cars:', error);
+      setCars([]); // Show empty results on error
     }
+  };
+
+  const onSearch = async () => {
+    if (!searchQuery.trim() || isLoading) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Start chat if not already started
+      if (!hasStarted) {
+        setHasStarted(true);
+      }
+
+      // Ensure we have a thread
+      const currentThreadId = await ensureThread();
+
+      // Add user message to chat
+      setMessages(prev => [...prev, { role: 'user', content: searchQuery }]);
+
+      // Send message to backend
+      const chatResponse = await fetch(`${backendUrl}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thread_id: currentThreadId, message: searchQuery })
+      });
+
+      if (!chatResponse.ok) {
+        const body = await chatResponse.json().catch(() => ({}));
+        throw new Error(body.error || `Chat error (${chatResponse.status})`);
+      }
+
+      const chatData = await chatResponse.json();
+      let assistantResponse = chatData.response;
+
+      // Add assistant response to chat
+      setMessages(prev => [...prev, { role: 'assistant', content: assistantResponse }]);
+
+      // Try to parse JSON response to extract SQL WHERE clause
+      let whereClause = null;
+      try {
+        // Look for JSON in the response
+        const jsonMatch = assistantResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsedResponse = JSON.parse(jsonMatch[0]);
+          whereClause = parsedResponse.sql_where_mysql;
+        }
+      } catch (parseError) {
+        console.log('Could not parse JSON from assistant response, searching without WHERE clause');
+      }
+
+      // Search for cars
+      await searchCars(whereClause);
+
+      // Clear search query
+      setSearchQuery("");
+
+    } catch (error) {
+      console.error('Search error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!hasStarted) {
+    return (
+      <div className="bg-[#fffbfa] relative size-full min-h-screen">
+        <div className="relative size-full min-h-screen">
+          <StoreHeaderNavBar />
+          <div className="box-border flex flex-col items-start justify-start min-h-[calc(100vh-72px)] px-12 py-0 relative size-full">
+            <div className="box-border flex items-start justify-start px-0 py-12 relative w-full z-[2]">
+              <div className="flex-1 flex flex-col items-start justify-start relative">
+                <LandingPageHero 
+                  searchQuery={searchQuery} 
+                  setSearchQuery={setSearchQuery} 
+                  onSearch={onSearch}
+                  showSearchForm={showSearchForm}
+                  isLoading={isLoading}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="page">
-      {/* Top bar with nav and sign-in */}
-      <div className="topbar topbar-split">
-        <div className="brand-wrap">
-          <img 
-            src={logoSrc} 
-            onError={() => setLogoSrc('/logo2.png')} 
-            alt="AiCar logo" 
-            className="brand-logo" 
-            onClick={handleLogoClick}
-            style={{ cursor: 'pointer' }}
-          />
-        </div>
-        <nav className="nav">
-          <a>Buy</a>
-          <a role="button" onClick={handleSellClick}>Sell</a>
-          <a>Value</a>
-          <a>Research</a>
-        </nav>
-        <button className="signin">Sign in</button>
-      </div>
-
-      {!hasStarted ? (
-        <section className="hero" aria-label="Landing">
-          <div className="hero-overlay" />
-          <div className="hero-content">
-            <h1 className="hero-title-xxl">Find your perfect car</h1>
-            <p className="hero-sub">Search smarter with AI. Get personalized recommendations and insights to help you find the best car for your needs.</p>
-            <form className="searchbar" onSubmit={handleSend}>
-              <input
-                type="text"
-                className="search-input"
-                placeholder={PROMPT_SUGGESTIONS[currentSuggestionIndex]}
-                value={message}
-                ref={heroInputRef}
-                onChange={(e)=>setMessage(e.target.value)}
-              />
-              <button className="search-button" type="submit">Search</button>
-            </form>
-          </div>
-        </section>
-      ) : (
-        <main className="container">
-          <div className={`layout fade-in`}>
-            <section className={`pane card left-pane ${animatingStart ? 'from-center' : ''}`} aria-label="Conversation" ref={chatRef}>
-              <div className="chat">
-                {messages.map((m, idx) => (
-                  <div key={idx} className={`bubble ${m.role === 'user' ? 'user' : 'assistant'}`}>
-                    <div className="bubble-inner">{m.content}</div>
-                  </div>
+    <div className="bg-[#fffbfa] relative size-full min-h-screen">
+      <div className="relative size-full min-h-screen">
+        <StoreHeaderNavBar />
+        <div className="box-border flex flex-col items-start justify-start min-h-[calc(100vh-72px)] px-12 py-0 relative size-full">
+          
+          {/* Chat and Results Layout */}
+          <div className="flex gap-8 w-full py-8">
+            
+            {/* Left Side - Chat */}
+            <div className="w-1/2 bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
+              <h2 className="font-outfit font-bold text-[24px] text-[#281d1b] mb-6">Chat with AI Assistant</h2>
+              
+              {/* Messages */}
+              <div className="h-96 overflow-y-auto mb-4 border border-gray-100 rounded-lg p-4">
+                {messages.map((message, index) => (
+                  <ChatMessage 
+                    key={index} 
+                    message={message.content} 
+                    isUser={message.role === 'user'} 
+                  />
                 ))}
-                {loading && (
-                  <div className="bubble assistant">
-                    <div className="bubble-inner">
-                      <div className="dots" aria-label="Typing">
-                        <span></span><span></span><span></span>
-                      </div>
+                
+                {isLoading && (
+                  <div className="flex justify-start mb-4">
+                    <div className="bg-gray-100 p-4 rounded-xl">
+                      <LoadingSpinner />
                     </div>
                   </div>
                 )}
               </div>
 
-              <form className="composer-bottom" onSubmit={handleSend}>
-                <label htmlFor="message" className="label">Your message</label>
-                <textarea
-                  id="message"
-                  ref={textareaRef}
-                  className={`input one-line`}
-                  placeholder={'Type your message...'}
-                  rows={1}
-                  onInput={(e) => autoResize(e.currentTarget)}
-                  value={message}
-                  onChange={(e) => { setMessage(e.target.value); autoResize(e.target as HTMLTextAreaElement) }}
+              {/* Input */}
+              <div className="flex gap-3">
+                <InputStandard 
+                  value={searchQuery} 
+                  onChange={setSearchQuery} 
+                  placeholder="Type your message..."
+                  onKeyDown={(e) => e.key === 'Enter' && !isLoading && onSearch()}
                 />
-                <button className="button" type="submit" disabled={loading}>
-                  {loading ? 'Sending…' : 'Send'}
-                </button>
-                {error && <div className="alert error" role="alert">{error}</div>}
-              </form>
-            </section>
-
-            <aside className={`pane card right-pane ${animatingStart ? 'from-right' : ''}`} aria-label="Personalized results">
-              <h2 className="panel-title">Your personalized results</h2>
-              <div className={`results-grid ${animatingResults ? 'crossfade' : ''}`}>
-                {results.map(item => (
-                  <article key={item.id} className="result-card">
-                    <div className="result-media">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        loading="lazy"
-                        onError={(e) => {
-                          const img = e.currentTarget
-                          img.onerror = null
-                          img.src = '/hero.png'
-                        }}
-                      />
-                      <button className="fav" aria-label="Save">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 21s-6.716-4.29-9.428-7.002C-0.14 11.57-.14 7.93 2.572 6.002 4.5 4.644 7.07 5.002 8.5 6.93L12 11l3.5-4.07c1.43-1.928 4-2.286 5.928-.928 2.712 1.928 2.712 5.57 0 7.996C18.716 16.71 12 21 12 21z" fill="currentColor"/>
-                        </svg>
-                      </button>
-                    </div>
-                    <h3 className="result-title">{item.name}</h3>
-                    <div className="result-meta">
-                      <span className="result-miles">{item.miles}</span>
-                      <span className="result-price">{item.price}</span>
-                    </div>
-                  </article>
-                ))}
-                {results.length === 0 && (
-                  <p className="result-empty">No exact matches. Try refining your search.</p>
-                )}
+                <ButtonLarge onClick={onSearch} disabled={isLoading}>
+                  {isLoading ? 'Sending...' : 'Send'}
+                </ButtonLarge>
               </div>
-            </aside>
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            {/* Right Side - Results */}
+            <div className="w-1/2 bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
+              <h2 className="font-outfit font-bold text-[24px] text-[#281d1b] mb-6">Search Results</h2>
+              
+              {cars.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto">
+                  {cars.map((car) => (
+                    <CarResultCard key={car.id} car={car} />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-gray-500">
+                  <p className="font-outfit text-center">
+                    {isLoading ? 'Searching for cars...' : 'Start a search to see results here'}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-        </main>
-      )}
 
-      <footer className="footer">
-        <span>Backend: {backendUrl}</span>
-      </footer>
-
-      <SellFormModal open={sellOpen} onClose={() => setSellOpen(false)} />
+        </div>
+      </div>
     </div>
-  )
+  );
 }
